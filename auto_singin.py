@@ -28,7 +28,6 @@ def get_interest_list(url, s):
         link = li.find('a')['href']
         interest_list.append(link.replace(r'?from=pcpage', r'/super_index'))
 
-
     return interest_list
 
 
@@ -38,7 +37,7 @@ def find_all_scripts(html):
 
 
 def find_all_lis(params):
-    list_html = BeautifulSoup(params['html'], 'html5lib')
+    list_html = BeautifulSoup(params['html'], 'html.parser')
     ul = list_html.find('ul', class_='member_ul clearfix')
     return ul.find_all('li', class_='member_li S_bg1')
 
@@ -52,16 +51,6 @@ def find_script_by_characteristic(params, characteristic):
     return ret
 
 
-def redirect_to_queue(queue):
-    def send_msg_to_queue(func):
-        def _func(url):
-            ret = func(url)
-            queue.append(ret)
-        return _func
-    return send_msg_to_queue
-
-
-@redirect_to_queue(buffer)
 def sign_in(url, s):
     html = s.get(url).content
     scripts = find_all_scripts(html)
@@ -69,7 +58,7 @@ def sign_in(url, s):
     target_script = find_script_by_characteristic(scripts, r'<div class=\"PCD_header_b\">')
 
     action_data = json.loads(target_script.string.strip('FM.view(').rstrip(')'))
-    soup = BeautifulSoup(action_data['html'], 'html5lib')
+    soup = BeautifulSoup(action_data['html'], 'html.parser')
     button = soup.find('a', class_='W_btn_b btn_32px')
     title = soup.find('h1').string
 
@@ -92,30 +81,6 @@ def create_signin_params(action_data):
               '__rnd': str(int(time.time()))}
     params.update(action_data_pairs)
     return params
-
-
-def get_msg_form_queue(queue):
-    def _func(func):
-        def __func():
-            while True:
-                if len(queue) != 0:
-                    func(queue[0])
-                    del queue[0]
-        return __func
-    return _func
-
-
-@get_msg_form_queue(buffer)
-def show_result(result):
-    print(result[0])
-    print('status code: {0}'.format(result[1]))
-    msg = json.loads(result[2])
-    if msg['code'] == '100000':
-        print(msg['data']['alert_title'])
-    elif msg['code'] == '382004':
-        print(msg['msg'])
-    else:
-        print('undefined status code - {0} - with message: {1}'.format(msg['code'], msg['msg']))
 
 
 def login():
@@ -166,14 +131,13 @@ def login():
 
     respons = s.post("http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)", data=params)
     redirect = re.search(r'http://passport.weibo.com.*retcode=0', respons.content).group()
-    print redirect
-    print s.get(redirect).content
+    s.get(redirect)
     return s
 
 
 if __name__ == '__main__':
     s = login()
     super_indexs = get_interest_list(start_page, s)
-    threading.Thread(target=show_result).start()
     for page in super_indexs:
-        threading.Thread(target=sign_in, args=(base_url + page, s)).start()
+        ret = sign_in(base_url + page, s)
+        print(u"{0}: {1} {2}".format(*ret))
