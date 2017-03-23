@@ -2,7 +2,6 @@
 import requests
 import json
 import time
-import threading
 import base64
 import re
 import rsa
@@ -13,7 +12,7 @@ from bs4 import BeautifulSoup
 base_url = 'http://weibo.com'
 start_page = base_url + '/p/1005055657540901/myfollow'
 params_interested = {'relate': 'interested', 'pids': 'plc_main', 'ajaxpagelet': '1', 'ajaxpagelet_v6': '1', '__ref': '/p/1005055657540901/myfollow?relate=interested#place', '_t': 'FM_148723148521247'}
-buffer = []
+
 
 def get_interest_list(url, s):
     html = s.get(url, params=params_interested).content
@@ -146,4 +145,9 @@ if __name__ == '__main__':
     for page in super_indexs:
         ret = sign_in(base_url + page, s)
         content = json.loads(ret[2])
-        print(u"{0} : {1} {2}".format(ret[0], content['msg'], content['data']['tipMessage'] if content['code'] == 100000 else ''))
+        print(
+            u"{0} : {1} {2}".format(
+                ret[0],
+                content['msg'],
+                content['data']['tipMessage'] if content['code'] == 100000 else '')
+        )
