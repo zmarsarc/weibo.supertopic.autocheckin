@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import requests
 import json
 import time
@@ -130,14 +131,19 @@ def login():
     }
 
     respons = s.post("http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)", data=params)
-    redirect = re.search(r'http://passport.weibo.com.*retcode=0', respons.content).group()
+    redirect = re.search(r'http://passport\.weibo\.com.*retcode=0', respons.content).group()
     s.get(redirect)
     return s
 
 
 if __name__ == '__main__':
+
+    # status_code: 382004 今天已经签到过了
+    #              100000 签到成功
+
     s = login()
     super_indexs = get_interest_list(start_page, s)
     for page in super_indexs:
         ret = sign_in(base_url + page, s)
-        print(u"{0}: {1} {2}".format(*ret))
+        content = json.loads(ret[2])
+        print(u"{0} : {1} {2}".format(ret[0], content['msg'], content['data']['tipMessage'] if content['code'] == 100000 else ''))
