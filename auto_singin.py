@@ -2,6 +2,10 @@ import requests
 import json
 import time
 import threading
+import base64
+import re
+import rsa
+import binascii
 from bs4 import BeautifulSoup
 
 
@@ -9,10 +13,9 @@ base_url = 'http://weibo.com'
 start_page = base_url + '/p/1005055657540901/myfollow'
 params_interested = {'relate': 'interested', 'pids': 'plc_main', 'ajaxpagelet': '1', 'ajaxpagelet_v6': '1', '__ref': '/p/1005055657540901/myfollow?relate=interested#place', '_t': 'FM_148723148521247'}
 buffer = []
-cookie = {'SINAGLOBAL': '6842487228056.298.1487229235680', 'wvr': '6', 'wb_g_upvideo_5657540901': '1', 'YF-Page-G0': '2d32d406b6cb1e7730e4e69afbffc88c', 'SCF': 'Au5PqXBAn2VqHUzj0wjYcaNuvuCJZDbZuezr4gy9lH8mGc53tyaD76fkr6tGrUFc_7RBDLdQLO9bCJVT2lolMpA.', 'SUB': '_2A251qTZQDeRxGeNI7lUU9C7Fyz2IHXVW3yCYrDV8PUNbmtANLXnYkW9tPwx8Mg6G37h0zmEkvFKd--o_Vw..', 'SUBP': '0033WrSXqPxfM725Ws9jqgMF55529P9D9WFYQEJlxfRhbVEBQso6Vy3S5JpX5KMhUgL.Fo-cSKMfSh54eh22dJLoIE-LxKqLBo2LB.BLxKqLBo5LBoBLxK-LB.eLBo.LxKML12qLBKWk', 'SUHB': '0wnFnV1P42PN0Q', 'ALF': '1519286655', 'SSOLoginState': '1487750656', 'YF-Ugrow-G0': 'ad83bc19c1269e709f753b172bddb094', 'YF-V5-G0': 'a906819fa00f96cf7912e89aa1628751', '_s_tentry': 'login.sina.com.cn', 'UOR': ',,login.sina.com.cn', 'Apache': '5554578599321.436.1487750662789', 'ULV': '1487750662829:7:7:3:5554578599321.436.1487750662789:1487588130181'}
 
-def get_interest_list(url):
-    html = requests.get(url, params=params_interested, cookies=cookie).content
+def get_interest_list(url, s):
+    html = s.get(url, params=params_interested).content
     scripts = find_all_scripts(html)
 
     interest_list = []
@@ -59,8 +62,8 @@ def redirect_to_queue(queue):
 
 
 @redirect_to_queue(buffer)
-def sign_in(url):
-    html = requests.get(url, cookies=cookie).content
+def sign_in(url, s):
+    html = s.get(url).content
     scripts = find_all_scripts(html)
 
     target_script = find_script_by_characteristic(scripts, r'<div class=\"PCD_header_b\">')
@@ -74,7 +77,7 @@ def sign_in(url):
 
     params = create_signin_params(button['action-data'])
 
-    result = requests.get(target_url, params=params, cookies=cookie)
+    result = s.get(target_url, params=params)
     return (title, result.status_code, result.content)
 
 
@@ -115,8 +118,62 @@ def show_result(result):
         print('undefined status code - {0} - with message: {1}'.format(msg['code'], msg['msg']))
 
 
+def login():
+    s = requests.session()
+
+    url = 'https://login.sina.com.cn/sso/prelogin.php'
+    params = {
+        'entry': 'weibo',
+        'callback': 'sinaSSOController.preloginCallBack',
+        'su': base64.b64encode('18502330411'),
+        'rsakt': 'mod',
+        'checkpin': '1',
+        'client': 'ssologin.js(v1.4.18)',
+        '_': int(time.time())
+    }
+
+    cont = s.get(url, params=params).content
+    cont = re.search(r"(?P<args>\{.*\})", cont)
+    info = json.loads(cont.group('args'))
+
+    rsaPubkey = int(info['pubkey'], 16)
+    key = rsa.PublicKey(rsaPubkey, 65537)
+    msg = str(info['servertime']) + '\t' + str(info['nonce']) + '\n' + str('zeng-1213-yu')
+    sp = rsa.encrypt(msg, key)
+    sp = binascii.b2a_hex(sp)
+
+    params = {
+        "entry": "weibo",
+        "gateway": "1",
+        "from": "",
+        "savestate": "7",
+        "useticket": "1",
+        "pagerefer": info['smsurl'],
+        "vsnf": "1",
+        "su": base64.b64encode('18502330411'),
+        "service": "miniblog",
+        "servertime": info['servertime'],
+        "nonce": info['nonce'],
+        "pwencode": "rsa2",
+        "rsakv": info['rsakv'],
+        "sp": sp,
+        "sr": "1280*720",
+        "encoding": "UTF-8",
+        "prelt": '49',
+        "url": "http://weibo.com/ajaxlogin.php?framelogin=1&callback=parent.sinaSSOController.feedBackUrlCallBack",
+        "returntype": "META"
+    }
+
+    respons = s.post("http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)", data=params)
+    redirect = re.search(r'http://passport.weibo.com.*retcode=0', respons.content).group()
+    print redirect
+    print s.get(redirect).content
+    return s
+
+
 if __name__ == '__main__':
-    super_indexs = get_interest_list(start_page)
+    s = login()
+    super_indexs = get_interest_list(start_page, s)
     threading.Thread(target=show_result).start()
     for page in super_indexs:
-        threading.Thread(target=sign_in, args=(base_url + page,)).start()
+        threading.Thread(target=sign_in, args=(base_url + page, s)).start()
