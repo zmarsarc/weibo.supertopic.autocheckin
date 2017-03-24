@@ -17,7 +17,7 @@ params_interested = {'relate': 'interested', 'pids': 'plc_main', 'ajaxpagelet': 
 
 def get_interest_list(url, s):
     html = s.get(url, params=params_interested).content
-    scripts = find_all_scripts(html)
+    scripts = find_all_script_tags(html)
 
     interest_list = []
     target_script = find_script_by_characteristic(scripts, r'<ul class=\"member_ul clearfix\">')
@@ -32,7 +32,7 @@ def get_interest_list(url, s):
     return interest_list
 
 
-def find_all_scripts(html):
+def find_all_script_tags(html):
     soup = BeautifulSoup(html, 'html.parser')
     return soup.find_all("script")
 
@@ -54,7 +54,7 @@ def find_script_by_characteristic(params, characteristic):
 
 def sign_in(url, s):
     html = s.get(url).content
-    scripts = find_all_scripts(html)
+    scripts = find_all_script_tags(html)
 
     target_script = find_script_by_characteristic(scripts, r'<div class=\"PCD_header_b\">')
 
