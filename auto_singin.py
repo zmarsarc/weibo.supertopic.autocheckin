@@ -147,8 +147,8 @@ def login():
     }
 
     respons = s.post("http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)", data=params)
-    redirect = re.search(r'http://passport\.weibo\.com.*retcode=0', respons.content).group()
-    s.get(redirect)
+    redirect = re.findall(r'http://passport\.weibo\.com.*retcode=0', respons.content)
+    s.get(redirect[0])
     return s
 
 
