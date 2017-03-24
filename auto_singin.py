@@ -157,8 +157,9 @@ if __name__ == '__main__':
 
     s = login()
     super_indexs = get_interest_list(start_page, s)
-    for page in super_indexs:
-        ret = sign_in(setup_sign_in_task(base_url + page, s), s)
+    tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
+    for task in tasks:
+        ret = sign_in(task, s)
         content = ret.raw.json()
         print(
             u"{0} : {1} {2}".format(
