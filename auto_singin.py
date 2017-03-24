@@ -60,9 +60,16 @@ class SignInTask(object):
         self.params = params
 
 
+class SignInResult(object):
+
+    def __init__(self, title, raw):
+        self.title = title
+        self.raw = raw
+
+
 def sign_in(task, s):
     result = s.get(task.url, params=task.params)
-    return (task.title, result.status_code, result.content)
+    return SignInResult(task.title, result)
 
 
 def setup_sign_in_task(url, s):
@@ -152,9 +159,9 @@ if __name__ == '__main__':
     super_indexs = get_interest_list(start_page, s)
     for page in super_indexs:
         ret = sign_in(setup_sign_in_task(base_url + page, s), s)
-        content = json.loads(ret[2])
+        content = ret.raw.json()
         print(
             u"{0} : {1} {2}".format(
-                ret[0],
+                ret.title,
                 content['msg'],
                 content['data']['tipMessage'] if content['code'] == 100000 else ''))
