@@ -23,7 +23,7 @@ def get_interest_list(url, s):
     target_script = find_script_by_characteristic(scripts, r'<ul class=\"member_ul clearfix\">')
     params = json.loads(target_script.string.strip('parent.FM.view(').rstrip(')'), encoding='utf-8')
 
-    lis = find_all_lis(params)
+    lis = find_all_li_tags(params['html'])
 
     for li in lis:
         link = li.find('a')['href']
@@ -37,8 +37,8 @@ def find_all_script_tags(html):
     return soup.find_all("script")
 
 
-def find_all_lis(params):
-    list_html = BeautifulSoup(params['html'], 'html.parser')
+def find_all_li_tags(html):
+    list_html = BeautifulSoup(html, 'html.parser')
     ul = list_html.find('ul', class_='member_ul clearfix')
     return ul.find_all('li', class_='member_li S_bg1')
 
