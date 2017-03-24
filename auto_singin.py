@@ -170,7 +170,7 @@ if __name__ == '__main__':
     next_day = math.ceil(time.time() / second_in_day) * second_in_day
     wait_seconds = (next_day - time.time()) + (timezone_offset * second_in_hour)
     print("standby, task will run in {0} seconds".format(wait_seconds))
-    time.sleep(wait_seconds)
+    # time.sleep(wait_seconds)
 
     for task in tasks:
         thread = threading.Thread(target=lambda: msg.put(sign_in(task, s))).start()
@@ -179,8 +179,7 @@ if __name__ == '__main__':
         if not msg.empty():
             ret = msg.get()
             content = ret.raw.json()
-            print(
-                u"{0} : {1} {2}".format(
-                    ret.title,
-                    content['msg'],
-                    content['data']['tipMessage'] if content['code'] == 100000 else ''))
+            try:
+                print ret.title, content['msg'], content['data']['alert_title']
+            except KeyError:
+                pass
