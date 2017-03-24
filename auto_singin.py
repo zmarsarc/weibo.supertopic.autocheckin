@@ -53,22 +53,22 @@ def find_script_by_characteristic(params, characteristic):
 
 
 def sign_in(url, s):
+    params, target_url, title = setup_sign_in_params(s, url)
+    result = s.get(target_url, params=params)
+    return (title, result.status_code, result.content)
+
+
+def setup_sign_in_params(s, url):
     html = s.get(url).content
     scripts = find_all_script_tags(html)
-
     target_script = find_script_by_characteristic(scripts, r'<div class=\"PCD_header_b\">')
-
     action_data = json.loads(target_script.string.strip('FM.view(').rstrip(')'))
     soup = BeautifulSoup(action_data['html'], 'html.parser')
     button = soup.find('a', class_='W_btn_b btn_32px')
     title = soup.find('h1').string
-
     target_url = base_url + '/p/aj/general/button'
-
     params = create_signin_params(button['action-data'])
-
-    result = s.get(target_url, params=params)
-    return (title, result.status_code, result.content)
+    return params, target_url, title
 
 
 def create_signin_params(action_data):
@@ -150,5 +150,4 @@ if __name__ == '__main__':
             u"{0} : {1} {2}".format(
                 ret[0],
                 content['msg'],
-                content['data']['tipMessage'] if content['code'] == 100000 else '')
-        )
+                content['data']['tipMessage'] if content['code'] == 100000 else ''))
