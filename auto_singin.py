@@ -60,13 +60,12 @@ class SignInTask(object):
         self.params = params
 
 
-def sign_in(url, s):
-    task = setup_sign_in_params(s, url)
+def sign_in(task, s):
     result = s.get(task.url, params=task.params)
     return (task.title, result.status_code, result.content)
 
 
-def setup_sign_in_params(s, url):
+def setup_sign_in_task(url, s):
     html = s.get(url).content
     scripts = find_all_script_tags(html)
     target_script = find_script_by_characteristic(scripts, r'<div class=\"PCD_header_b\">')
@@ -152,7 +151,7 @@ if __name__ == '__main__':
     s = login()
     super_indexs = get_interest_list(start_page, s)
     for page in super_indexs:
-        ret = sign_in(base_url + page, s)
+        ret = sign_in(setup_sign_in_task(base_url + page, s), s)
         content = json.loads(ret[2])
         print(
             u"{0} : {1} {2}".format(
