@@ -52,10 +52,18 @@ def find_script_by_characteristic(params, characteristic):
     return ret
 
 
+class SignInTask(object):
+
+    def __init__(self, title, url, params):
+        self.title = title
+        self.url = url
+        self.params = params
+
+
 def sign_in(url, s):
-    params, target_url, title = setup_sign_in_params(s, url)
-    result = s.get(target_url, params=params)
-    return (title, result.status_code, result.content)
+    task = setup_sign_in_params(s, url)
+    result = s.get(task.url, params=task.params)
+    return (task.title, result.status_code, result.content)
 
 
 def setup_sign_in_params(s, url):
@@ -68,7 +76,7 @@ def setup_sign_in_params(s, url):
     title = soup.find('h1').string
     target_url = base_url + '/p/aj/general/button'
     params = create_signin_params(button['action-data'])
-    return params, target_url, title
+    return SignInTask(title, target_url, params)
 
 
 def create_signin_params(action_data):
