@@ -154,6 +154,7 @@ def login():
 
 if __name__ == '__main__':
 
+    import math
     # status_code: 382004 今天已经签到过了
     #              100000 签到成功
 
@@ -161,6 +162,14 @@ if __name__ == '__main__':
     s = login()
     super_indexs = get_interest_list(start_page, s)
     tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
+
+    second_in_hour = 60 * 60
+    second_in_day = 24 * second_in_hour
+    timezone_offset = -8
+    next_day = math.ceil(time.time() / second_in_day) * second_in_day
+    wait_seconds = (next_day - time.time()) + (timezone_offset * second_in_hour)
+    print("standby, task will run in {0} seconds".format(wait_seconds))
+    time.sleep(wait_seconds)
 
     for task in tasks:
         thread = threading.Thread(target=lambda: msg.put(sign_in(task, s))).start()
