@@ -7,6 +7,8 @@ import base64
 import re
 import rsa
 import binascii
+import threading
+import Queue
 from bs4 import BeautifulSoup
 
 
@@ -155,14 +157,20 @@ if __name__ == '__main__':
     # status_code: 382004 今天已经签到过了
     #              100000 签到成功
 
+    msg = Queue.Queue()
     s = login()
     super_indexs = get_interest_list(start_page, s)
     tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
+
     for task in tasks:
-        ret = sign_in(task, s)
-        content = ret.raw.json()
-        print(
-            u"{0} : {1} {2}".format(
-                ret.title,
-                content['msg'],
-                content['data']['tipMessage'] if content['code'] == 100000 else ''))
+        thread = threading.Thread(target=lambda: msg.put(sign_in(task, s))).start()
+
+    while True:
+        if not msg.empty():
+            ret = msg.get()
+            content = ret.raw.json()
+            print(
+                u"{0} : {1} {2}".format(
+                    ret.title,
+                    content['msg'],
+                    content['data']['tipMessage'] if content['code'] == 100000 else ''))
