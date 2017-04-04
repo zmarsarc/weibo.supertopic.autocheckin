@@ -170,10 +170,11 @@ if __name__ == '__main__':
     next_day = math.ceil(time.time() / second_in_day) * second_in_day
     wait_seconds = (next_day - time.time()) + (timezone_offset * second_in_hour)
     print("standby, task will run in {0} seconds".format(wait_seconds))
-    # time.sleep(wait_seconds)
+    # time.sleep(wait_seconds + 60)  # 0001时签到
 
     for task in tasks:
         thread = threading.Thread(target=lambda: msg.put(sign_in(task, s))).start()
+        time.sleep(0.5)
 
     while True:
         if not msg.empty():
