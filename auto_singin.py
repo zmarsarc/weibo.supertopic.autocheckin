@@ -184,3 +184,10 @@ if __name__ == '__main__':
                 print ret.title, content['msg'], content['data']['alert_title']
             except KeyError:
                 pass
+            except TypeError as e:
+                with open('error_log.txt', 'w') as f:
+                    encoder = json.JSONEncoder()
+                    f.write(encoder.encode(content))
+                print e.message
+                exit(-1)
+
