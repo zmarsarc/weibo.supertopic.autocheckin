@@ -22,64 +22,45 @@ class Session(object):
     def __init__(self):
         self._session = None
         self._db = None
+        self._config = None
 
     def login(self):
         s = requests.session()
         s.headers['User-Agent'] = r'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36'
-
-        url = 'https://login.sina.com.cn/sso/prelogin.php'
-        params = {
-            'entry': 'weibo',
-            'callback': 'sinaSSOController.preloginCallBack',
-            'su': base64.b64encode('18502330411'),
-            'rsakt': 'mod',
-            'checkpin': '1',
-            'client': 'ssologin.js(v1.4.18)',
+        su = self._config['auth']['user']
+        prelogin_params = {
+            'su': su,
             '_': int(time.time())
         }
 
-        cont = s.get(url, params=params).content
+        cont = s.get(
+            self._config['prelogin']['entry'],
+            params=self._config['prelogin']['params'].update(prelogin_params)).content
+
         cont = re.search(r"(?P<args>\{.*\})", cont)
         info = json.loads(cont.group('args'))
 
         rsaPubkey = int(info['pubkey'], 16)
         key = rsa.PublicKey(rsaPubkey, 65537)
-        msg = str(info['servertime']) + '\t' + str(info['nonce']) + '\n' + str('zeng-1213-yu')
+        msg = str(info['servertime']) + '\t' + str(info['nonce']) + '\n' + str(self._config['auth']['pwd'])
         sp = rsa.encrypt(msg, key)
         sp = binascii.b2a_hex(sp)
 
-        params = {
-            "entry": "weibo",
-            "gateway": "1",
-            "from": "",
-            "savestate": "7",
-            "useticket": "1",
+        login_params = {
             "pagerefer": info['smsurl'],
-            "vsnf": "1",
-            "su": base64.b64encode('18502330411'),
-            "service": "miniblog",
+            "su": su,
             "servertime": info['servertime'],
             "nonce": info['nonce'],
-            "pwencode": "rsa2",
             "rsakv": info['rsakv'],
             "sp": sp,
-            "sr": "1280*720",
-            "encoding": "UTF-8",
-            "prelt": '49',
-            "url": "http://weibo.com/ajaxlogin.php?framelogin=1&callback=parent.sinaSSOController.feedBackUrlCallBack",
-            "returntype": "META"
         }
+        respons = s.post(
+            self._config['login']['entry'],
+            data=self._config['login']['params'].update(login_params))
 
-        respons = s.post("http://login.sina.com.cn/sso/login.php?client=ssologin.js(v1.4.18)", data=params)
         redirect = re.findall(r'http://passport\.weibo\.com.*retcode=0', respons.content)
         s.get(redirect[0])
         self._session = s
-
-    def _get_username(self):
-        pass
-
-    def _get_password(self):
-        pass
 
     def _connect_db(self):
         url = "mongodb://{0}:{1}@{2}".format(
@@ -90,6 +71,8 @@ class Session(object):
         try:
             client = pymongo.MongoClient(url, port=27017, connect=True)
             self._db = client.get_database('weibo')
+            config = self._db.weibo.config.find()
+            self._config = config.next()
         except pymongo.errors.ServerSelectionTimeoutError:
             print "Connect host :{0}:{1} failed. Server not available".format(self._db_host, self._db_port)
             sys.exit(-1)
