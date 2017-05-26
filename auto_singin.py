@@ -9,28 +9,47 @@ import rsa
 import binascii
 import threading
 import Queue
+import sqlite3
+import sys
 from bs4 import BeautifulSoup
 
 
 base_url = 'http://weibo.com'
 start_page = base_url + '/p/1005055657540901/myfollow'
 params_interested = {'relate': 'interested', 'pids': 'plc_main', 'ajaxpagelet': '1', 'ajaxpagelet_v6': '1', '__ref': '/p/1005055657540901/myfollow?relate=interested#place', '_t': 'FM_148723148521247'}
+config_database = 'sign_in_config.db'
 
 
 def get_interest_list(url, s):
+
+    # TODO: 首先尝试从数据库中读取地址，如果数据库当中没有地址，则从网络获取。
+    urls = get_interest_urls_from_db()
+    if not urls:
+        urls = get_interest_urls_from_web(url, s)
+    return urls
+
+
+def get_interest_urls_from_db():
+    db = sqlite3.connect(config_database)
+    try:
+        interests = db.execute('SELECT * FROM urls WHERE type = "interest";').fetchall()
+    finally:
+        db.close()
+
+    return interests if len(interests) != 0 else None
+
+
+def get_interest_urls_from_web(url, s):
+    """从网络获取超级话题的签到地址"""
     html = s.get(url, params=params_interested).content
     scripts = find_all_script_tags(html)
-
     interest_list = []
     target_script = find_script_by_characteristic(scripts, r'<ul class=\"member_ul clearfix\">')
     params = json.loads(target_script.string.strip('parent.FM.view(').rstrip(')'), encoding='utf-8')
-
     lis = find_all_li_tags(params['html'])
-
     for li in lis:
         link = li.find('a')['href']
         interest_list.append(link.replace(r'?from=pcpage', r'/super_index'))
-
     return interest_list
 
 
@@ -155,22 +174,25 @@ def login():
 
 if __name__ == '__main__':
 
-    import math
     # status_code: 382004 今天已经签到过了
     #              100000 签到成功
 
     msg = Queue.Queue()
     s = login()
-    super_indexs = get_interest_list(start_page, s)
-    tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
 
-    second_in_hour = 60 * 60
-    second_in_day = 24 * second_in_hour
-    timezone_offset = -8
-    next_day = math.ceil(time.time() / second_in_day) * second_in_day
-    wait_seconds = (next_day - time.time()) + (timezone_offset * second_in_hour)
-    print("standby, task will run in {0} seconds".format(wait_seconds))
-    # time.sleep(wait_seconds + 60)  # 0001时签到
+    # TODO: 每次都重新请求签到地址就很慢，而且考虑到签到的地址大体上是稳定的，所以考虑将签到地址放到配置文件中
+    try:
+        super_indexs = get_interest_list(start_page, s)
+        tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
+    except sqlite3.OperationalError as e:
+        super_indexs = get_interest_urls_from_web(start_page, s)
+        tasks = [setup_sign_in_task(base_url + p, s) for p in super_indexs]
+        db = sqlite3.connect(config_database)
+        with open('schema.sql') as fp:
+            db.executescript(fp.read())
+        db.executemany('insert into urls values (?, interest);', tasks)
+        db.commit()
+        db.close()
 
     for task in tasks:
         thread = threading.Thread(target=lambda: msg.put(sign_in(task, s))).start()
